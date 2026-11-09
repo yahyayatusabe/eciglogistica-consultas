@@ -2,7 +2,6 @@ services:
   # ---------------- Base de datos ----------------
   db:
     image: mysql:8.0
-    container_name: ecig_db
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_local}
       MYSQL_DATABASE: ${DB_NAME:-eciglogistica}
@@ -10,12 +9,21 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-ecig_pass}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
-      - "3307:3306"            # 3307 fuera para no chocar con un MySQL/XAMPP local
+      - '3307:3306' # 3307 fuera para no chocar con un MySQL/XAMPP local
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - db_data:/var/lib/mysql # los datos sobreviven a reinicios
-    healthcheck:               # los demás servicios esperan a que MySQL esté listo
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-root_local}"]
+    healthcheck: # los demás servicios esperan a que MySQL esté listo
+      test:
+        [
+          'CMD',
+          'mysqladmin',
+          'ping',
+          '-h',
+          'localhost',
+          '-uroot',
+          '-p${DB_ROOT_PASSWORD:-root_local}',
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -23,15 +31,20 @@ services:
   # ---------------- Servicio de IA (Python) ----------------
   ai:
     build: ./ai-service
-    container_name: ecig_ai
     environment:
-      AI_API_KEY: ${AI_API_KEY:-}            # vacío = modo simulado
-      AI_MODEL: ${AI_MODEL:-llama-3.3-70b-versatile}
+      AI_API_KEY: ${AI_API_KEY:-} # vacío = modo simulado
+      AI_MODEL: ${AI_MODEL:-openai/gpt-oss-20b}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.groq.com/openai/v1}
     expose:
-      - "5000"                 # solo accesible dentro de la red de Docker
+      - '5000' # solo accesible dentro de la red de Docker
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -39,7 +52,6 @@ services:
   # ---------------- Web: API PHP + frontend ----------------
   web:
     build: ./php
-    container_name: ecig_web
     environment:
       DB_HOST: db
       DB_PORT: 3306
@@ -49,7 +61,7 @@ services:
       AI_SERVICE_URL: http://ai:5000
       TZ: Europe/Madrid
     ports:
-      - "8080:80"              # http://localhost:8080
+      - '8080:80' # http://localhost:8080
     depends_on:
       db:
         condition: service_healthy
@@ -59,13 +71,12 @@ services:
   # ---------------- Visor de la BD ----------------
   phpmyadmin:
     image: phpmyadmin:5
-    container_name: ecig_phpmyadmin
     environment:
       PMA_HOST: db
       PMA_USER: ${DB_USER:-ecig_user}
       PMA_PASSWORD: ${DB_PASSWORD:-ecig_pass}
     ports:
-      - "8081:80"              # http://localhost:8081
+      - '8081:80' # http://localhost:8081
     depends_on:
       db:
         condition: service_healthy
