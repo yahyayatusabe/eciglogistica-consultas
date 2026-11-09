@@ -33,10 +33,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
         ]);
 
     case 'POST':
-        $servicio = new ConsultaService(
-            $repo,
-            new ClasificadorClient(getenv('AI_SERVICE_URL') ?: 'http://localhost:5000')
-        );
+        $servicio = crearConsultaService($repo);
 
         $datos = leerJson();
         $errores = $servicio->validar($datos);

@@ -27,9 +27,4 @@ if ($consulta['estado'] !== 'error') {
     responderJson(['error' => 'Solo se pueden reintentar consultas en estado error'], 409);
 }
 
-$servicio = new ConsultaService(
-    $repo,
-    new ClasificadorClient(getenv('AI_SERVICE_URL') ?: 'http://localhost:5000')
-);
-
-responderJson($servicio->clasificar($id));
+responderJson(crearConsultaService($repo)->clasificar($id));

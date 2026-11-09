@@ -31,6 +31,18 @@ function leerJson(): array
     return is_array($datos) ? $datos : [];
 }
 
+/** Cliente del servicio de IA (la URL llega por variable de entorno desde docker-compose). */
+function crearClasificador(): ClasificadorClient
+{
+    return new ClasificadorClient(getenv('AI_SERVICE_URL') ?: 'http://localhost:5000');
+}
+
+/** Servicio con el flujo completo de una consulta, listo para usar en los endpoints. */
+function crearConsultaService(ConsultaRepository $repo): ConsultaService
+{
+    return new ConsultaService($repo, crearClasificador());
+}
+
 // Cualquier excepción no controlada -> 500 genérico (sin filtrar detalles internos).
 set_exception_handler(function (Throwable $e): void {
     error_log('[API] ' . $e::class . ': ' . $e->getMessage());
