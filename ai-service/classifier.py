@@ -126,6 +126,7 @@ def clasificar_con_ia(texto: str, api_key: str) -> dict:
     except requests.Timeout as e:
         raise ClasificacionError("El proveedor de IA no respondió a tiempo") from e
     except requests.HTTPError as e:
+        print(f"[IA] Respuesta del proveedor: {e.response.text[:300]}", flush=True)
         raise ClasificacionError(f"El proveedor de IA devolvió HTTP {e.response.status_code}") from e
     except requests.RequestException as e:
         raise ClasificacionError("No se pudo conectar con el proveedor de IA") from e
