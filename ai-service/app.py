@@ -1,7 +1,8 @@
 """
 Microservicio de clasificación con IA.
 
-Una única responsabilidad: recibir un texto y devolver su categoría.
+Una única responsabilidad: recibir un texto y devolver su análisis
+(categoría, urgencia, resumen y borrador de respuesta).
 No accede a la base de datos (eso lo hace el backend PHP).
 """
 
@@ -44,8 +45,14 @@ def clasificar_endpoint():
     if len(texto) > MAX_CARACTERES:
         return jsonify(error=f"El texto no puede superar {MAX_CARACTERES} caracteres"), 400
 
+    nombre_tienda = datos.get("nombre_tienda")
+    if not isinstance(nombre_tienda, str) or not nombre_tienda.strip():
+        nombre_tienda = None  # opcional: solo se usa para personalizar el saludo
+    else:
+        nombre_tienda = nombre_tienda.strip()[:120]
+
     try:
-        resultado = clasificar(texto)
+        resultado = clasificar(texto, nombre_tienda)
     except ClasificacionError as e:
         log.warning("Fallo de clasificación: %s", e)
         return jsonify(error=str(e)), 502

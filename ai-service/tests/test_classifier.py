@@ -24,6 +24,21 @@ def test_simulado(texto, esperado):
     assert clasificar_simulado(texto)["categoria"] == esperado
 
 
+@pytest.mark.parametrize("texto, urgencia", [
+    ("Nos han llegado 5 pods que no cargan", "alta"),
+    ("¿Tenéis precio por volumen en sales de nicotina?", "media"),
+    ("Todo llegó en 24h, ¡muchas gracias!", "baja"),
+])
+def test_simulado_urgencia(texto, urgencia):
+    assert clasificar_simulado(texto)["urgencia"] == urgencia
+
+
+def test_simulado_devuelve_ayuda_para_el_equipo():
+    r = clasificar_simulado("¿Tenéis stock del pod nuevo?", "Vapers Gandia")
+    assert r["resumen"] is None  # el resumen solo lo genera la IA real
+    assert "Vapers Gandia" in r["respuesta_sugerida"]
+
+
 # ---------- Modo IA (con la API simulada, sin gastar saldo) ----------
 
 def _respuesta_falsa(contenido: str):
@@ -34,8 +49,24 @@ def _respuesta_falsa(contenido: str):
 
 
 def test_ia_respuesta_valida():
-    with patch.object(classifier.requests, "post", return_value=_respuesta_falsa('{"categoria": "Duda Comercial"}')):
-        assert clasificar_con_ia("precio?", "key")["categoria"] == "Duda Comercial"
+    contenido = ('{"categoria": "Duda Comercial", "urgencia": "media", '
+                 '"resumen": "Piden precios", "respuesta_sugerida": "Hola, os lo confirmamos."}')
+    with patch.object(classifier.requests, "post", return_value=_respuesta_falsa(contenido)):
+        r = clasificar_con_ia("precio?", "key")
+    assert r["categoria"] == "Duda Comercial"
+    assert r["urgencia"] == "media"
+    assert r["resumen"] == "Piden precios"
+    assert r["respuesta_sugerida"] == "Hola, os lo confirmamos."
+
+
+def test_ia_campos_de_ayuda_invalidos_se_corrigen():
+    # La categoría es crítica (se valida estricto); la ayuda se corrige sin fallar.
+    contenido = '{"categoria": "Soporte Técnico", "urgencia": "URGENTISIMO", "resumen": 123}'
+    with patch.object(classifier.requests, "post", return_value=_respuesta_falsa(contenido)):
+        r = clasificar_con_ia("no carga", "key")
+    assert r["urgencia"] == "media"
+    assert r["resumen"] is None
+    assert r["respuesta_sugerida"] is None
 
 
 def test_ia_categoria_inventada_se_rechaza():
@@ -67,7 +98,10 @@ def client(monkeypatch):
 def test_api_ok(client):
     r = client.post("/clasificar", json={"texto": "¿Cuánto cuesta el pack de 10?"})
     assert r.status_code == 200
-    assert r.get_json() == {"categoria": "Duda Comercial", "clasificado_por": "simulado"}
+    datos = r.get_json()
+    assert datos["categoria"] == "Duda Comercial"
+    assert datos["clasificado_por"] == "simulado"
+    assert set(datos) == {"categoria", "urgencia", "resumen", "respuesta_sugerida", "clasificado_por"}
 
 
 @pytest.mark.parametrize("body", [{}, {"texto": ""}, {"texto": "   "}, {"texto": 123}])
