@@ -94,6 +94,18 @@ curl -X POST http://localhost:8080/api/consultas.php \
 
 ---
 
+## ✨ Mejora añadida: asistente de respuesta
+
+El enunciado pedía clasificar cada consulta. Como mejora, decidí que la IA también ahorrara trabajo al equipo de atención al cliente, que es justo lo que implica automatizar un proceso:
+
+* **Urgencia** (alta, media o baja): las urgentes se marcan en rojo y tienen su propio filtro, para atender primero a las tiendas con productos defectuosos o pedidos que no llegan.
+* **Resumen de una línea**, para saber de un vistazo qué pide cada tienda.
+* **Borrador de respuesta** que una persona revisa y copia con un clic. El prompt prohíbe a la IA inventar datos que no conoce (precios, plazos, stock), para evitar que se envíe información falsa a un cliente.
+
+La IA propone y la persona decide: nada se envía automáticamente.
+
+---
+
 ## 📂 Estructura del proyecto
 
 ```text
@@ -158,7 +170,9 @@ Cubren el modo simulado (categoría, urgencia y respuesta), el rechazo de catego
 
 ## 🤖 Cómo me ayudó la IA a desarrollarlo
 
-Para este proyecto me apoyé en un asistente de IA (Claude) como copiloto: me ayudó a planificar la arquitectura, generar la base del código y depurar problemas. Revisé cada parte para entenderla y, en el proceso, aprendí conceptos que no dominaba.
+Para este proyecto me apoyé en un asistente de IA (Claude) como copiloto: me ayudó a planificar la arquitectura, generar la base del código, depurar problemas y revisar el código para simplificarlo. Los comentarios que explican cada función también se escribieron con ayuda de la IA, y los repasé para comprobar que describen lo que hace el código.
+
+Revisé cada parte para entenderla y, en el proceso, aprendí conceptos que no dominaba. Estaré encantado de explicar cualquier decisión del proyecto.
 
 Gracias a ese proceso apliqué buenas prácticas que se notan en el resultado final:
 * **PDO con consultas preparadas** para evitar la inyección SQL.
@@ -166,6 +180,7 @@ Gracias a ese proceso apliqué buenas prácticas que se notan en el resultado fi
 * Separar el prompt de sistema del texto del usuario contra la **prompt injection**.
 * **Validación en el servidor**, porque la del navegador se puede saltar fácilmente.
 * **Gestión de errores por tipo**, para poder reintentar los fallos de la IA sin perder registros.
+* **No repetir código (principio DRY)**: al revisar el proyecto vi que la llamada HTTP al servicio de IA y la creación del servicio estaban duplicadas en varios endpoints. Las centralicé en `ClasificadorClient` y en dos funciones de `bootstrap.php`, de modo que un cambio (por ejemplo, la URL del servicio) se hace en un solo sitio.
 
 Me quedo con una regla que lo resume todo: **los datos del usuario nunca se tratan como código**, ya vayan a SQL, al HTML o a un prompt.
 
