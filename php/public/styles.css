@@ -12,6 +12,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }  /* que "hidden" gane siempre a display: flex/inline-flex */
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -74,6 +75,8 @@ button { font: inherit; cursor: pointer; border-radius: 7px; }
 }
 .filtro .n { margin-left: 6px; font-weight: 700; }
 .filtro[aria-selected="true"] { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+.filtro.urgentes { border-color: #f3b3b6; color: var(--error); }
+.filtro.urgentes[aria-selected="true"] { background: var(--error); color: #fff; border-color: var(--error); }
 
 .lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .consulta { border: 1px solid var(--borde); border-radius: 8px; padding: 12px 14px; }
@@ -84,6 +87,25 @@ button { font: inherit; cursor: pointer; border-radius: 7px; }
 .email { color: var(--gris); }
 .fecha { margin-left: auto; color: var(--gris); font-size: 12px; }
 .texto { margin: 8px 0; white-space: pre-wrap; line-height: 1.45; }
+.resumen { margin: 8px 0 0; font-weight: 600; font-size: 14px; }
+.resumen:not([hidden]) + .texto { color: var(--gris); font-size: 14px; margin-top: 4px; }
+
+/* ---------- Urgencia ---------- */
+.urgencia { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+.urgencia::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.urgencia.alta  { color: var(--error); }
+.urgencia.media { color: var(--pendiente); }
+.urgencia.baja  { color: var(--gris); }
+.consulta.es-urgente { border-left: 4px solid var(--error); }
+
+/* ---------- Respuesta sugerida ---------- */
+.sugerida { margin: 4px 0 8px; font-size: 13px; }
+.sugerida summary { cursor: pointer; color: var(--comercial); font-weight: 600; }
+.sugerida-aviso { margin: 6px 0; color: var(--gris); font-size: 12px; }
+.sugerida-texto {
+  white-space: pre-wrap; font-family: inherit; background: var(--fondo); border: 1px solid var(--borde);
+  border-radius: 7px; padding: 10px 12px; margin: 0 0 8px; line-height: 1.45;
+}
 .consulta-pie { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--gris); }
 .vacio { color: var(--gris); text-align: center; padding: 30px 0; }
 .vacio:empty { display: none; }

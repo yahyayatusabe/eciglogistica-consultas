@@ -17,7 +17,7 @@
     <!-- Formulario de nueva consulta -->
     <section class="panel formulario">
       <h2>Nueva consulta</h2>
-      <p class="ayuda">Simula el mensaje de una tienda cliente. Se guarda y la IA la clasifica al instante.</p>
+      <p class="ayuda">Simula el mensaje de una tienda cliente. Se guarda y la IA la clasifica al instante, indica su urgencia y propone una respuesta.</p>
 
       <div class="ejemplos" aria-label="Rellenar con un ejemplo">
         <span>Probar con:</span>
@@ -61,11 +61,19 @@
     <li class="consulta">
       <div class="consulta-cabecera">
         <span class="badge"></span>
+        <span class="urgencia" hidden></span>
         <strong class="tienda"></strong>
         <span class="email"></span>
         <time class="fecha"></time>
       </div>
+      <p class="resumen" hidden></p>
       <p class="texto"></p>
+      <details class="sugerida" hidden>
+        <summary>Ver respuesta sugerida</summary>
+        <p class="sugerida-aviso">Borrador para revisar antes de enviar.</p>
+        <pre class="sugerida-texto"></pre>
+        <button type="button" class="copiar secundario">Copiar respuesta</button>
+      </details>
       <div class="consulta-pie">
         <span class="meta"></span>
         <button type="button" class="reintentar secundario" hidden>Reintentar clasificación</button>

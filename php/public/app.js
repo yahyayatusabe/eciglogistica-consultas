@@ -46,6 +46,7 @@ async function pedir(url, opciones = {}) {
 async function cargarConsultas(idResaltado = null) {
   let params = '';
   if (filtroActual === '__error') params = '?estado=error';
+  else if (filtroActual === '__urgentes') params = '?urgencia=alta';
   else if (filtroActual) params = `?categoria=${encodeURIComponent(filtroActual)}`;
   try {
     const { consultas, resumen } = await pedir(`${API}/consultas.php${params}`);
@@ -61,7 +62,11 @@ function pintarFiltros(resumen) {
   const contenedor = $('#filtros');
   contenedor.replaceChildren();
 
-  const opciones = [[null, 'Todas', resumen.total], ...Object.entries(resumen.por_categoria).map(([c, n]) => [c, c, n])];
+  const opciones = [
+    [null, 'Todas', resumen.total],
+    ['__urgentes', 'Urgentes', resumen.por_urgencia.alta],
+    ...Object.entries(resumen.por_categoria).map(([c, n]) => [c, c, n]),
+  ];
   if (resumen.por_estado.error > 0) {
     opciones.push(['__error', 'Con error', resumen.por_estado.error]);
   }
@@ -69,7 +74,7 @@ function pintarFiltros(resumen) {
   for (const [valor, etiqueta, n] of opciones) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'filtro';
+    b.className = valor === '__urgentes' ? 'filtro urgentes' : 'filtro';
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(filtroActual === valor));
     b.textContent = etiqueta;
@@ -100,6 +105,26 @@ function crearItem(c, resaltar) {
     badge.classList.add(c.estado);
   }
 
+  if (c.urgencia) {
+    const urg = li.querySelector('.urgencia');
+    urg.textContent = `Urgencia ${c.urgencia}`;
+    urg.classList.add(c.urgencia);
+    urg.hidden = false;
+    if (c.urgencia === 'alta') li.classList.add('es-urgente');
+  }
+  if (c.resumen) {
+    const resumen = li.querySelector('.resumen');
+    resumen.textContent = c.resumen;
+    resumen.hidden = false;
+  }
+  if (c.respuesta_sugerida) {
+    const det = li.querySelector('.sugerida');
+    det.querySelector('.sugerida-texto').textContent = c.respuesta_sugerida;
+    det.hidden = false;
+    const btnCopiar = det.querySelector('.copiar');
+    btnCopiar.addEventListener('click', () => copiar(c.respuesta_sugerida, btnCopiar));
+  }
+
   li.querySelector('.tienda').textContent = c.nombre_tienda;
   li.querySelector('.email').textContent = c.email;
   li.querySelector('.texto').textContent = c.texto;
@@ -125,6 +150,16 @@ function formatearFecha(valor) {
   return isNaN(d) ? valor : d.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+async function copiar(texto, btn) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    btn.textContent = '¡Copiada!';
+  } catch {
+    btn.textContent = 'No se pudo copiar';
+  }
+  setTimeout(() => { btn.textContent = 'Copiar respuesta'; }, 2000);
+}
+
 async function reintentar(id, btn) {
   btn.disabled = true;
   btn.textContent = 'Clasificando…';
@@ -145,7 +180,7 @@ form.addEventListener('submit', async (ev) => {
   errores.textContent = '';
 
   btnEnviar.disabled = true;
-  btnEnviar.textContent = 'Clasificando con IA…';
+  btnEnviar.textContent = 'Analizando con IA…';
   try {
     const consulta = await pedir(`${API}/consultas.php`, { method: 'POST', body: JSON.stringify(datos) });
     form.reset();
