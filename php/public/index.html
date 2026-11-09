@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consultas de clientes · Eciglogística</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="marca">ecig<span>logística</span></div>
+    <div class="subtitulo">Bandeja de consultas de tiendas · clasificación con IA en tiempo real</div>
+    <div id="modo-ia" class="modo" hidden></div>
+  </header>
+
+  <main class="layout">
+    <!-- Formulario de nueva consulta -->
+    <section class="panel formulario">
+      <h2>Nueva consulta</h2>
+      <p class="ayuda">Simula el mensaje de una tienda cliente. Se guarda y la IA la clasifica al instante.</p>
+
+      <div class="ejemplos" aria-label="Rellenar con un ejemplo">
+        <span>Probar con:</span>
+        <button type="button" data-ejemplo="0">Incidencia</button>
+        <button type="button" data-ejemplo="1">Comercial</button>
+        <button type="button" data-ejemplo="2">Agradecimiento</button>
+      </div>
+
+      <form id="form-consulta" novalidate>
+        <label>Tienda
+          <input name="nombre_tienda" maxlength="120" required placeholder="Vape Shop Alzira">
+        </label>
+        <label>Email
+          <input name="email" type="email" maxlength="255" required placeholder="pedidos@tienda.es">
+        </label>
+        <label>Consulta
+          <textarea name="texto" rows="6" maxlength="2000" required
+                    placeholder="Escribe aquí el mensaje de la tienda..."></textarea>
+          <span class="contador"><span id="contador">0</span>/2000</span>
+        </label>
+        <div id="errores" class="errores" role="alert"></div>
+        <button id="btn-enviar" type="submit" class="primario">Enviar y clasificar</button>
+      </form>
+    </section>
+
+    <!-- Listado -->
+    <section class="panel listado">
+      <div class="listado-cabecera">
+        <h2>Consultas recibidas</h2>
+        <button id="btn-recargar" type="button" class="secundario" title="Recargar">↻ Recargar</button>
+      </div>
+
+      <div id="filtros" class="filtros" role="tablist" aria-label="Filtrar por categoría"></div>
+
+      <div id="estado-carga" class="vacio">Cargando consultas…</div>
+      <ul id="lista" class="lista"></ul>
+    </section>
+  </main>
+
+  <template id="tpl-consulta">
+    <li class="consulta">
+      <div class="consulta-cabecera">
+        <span class="badge"></span>
+        <strong class="tienda"></strong>
+        <span class="email"></span>
+        <time class="fecha"></time>
+      </div>
+      <p class="texto"></p>
+      <div class="consulta-pie">
+        <span class="meta"></span>
+        <button type="button" class="reintentar secundario" hidden>Reintentar clasificación</button>
+      </div>
+    </li>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
