@@ -2,6 +2,8 @@
 
 Una bandeja de entrada para gestionar y clasificar al momento las consultas que las **tiendas cliente** (tiendas de vapeo, estancos, grow shops...) envían a un mayorista como Eciglogística. La idea es sencilla pero sólida: cada consulta se guarda en la base de datos en cuanto llega y una IA la clasifica automáticamente como **Soporte Técnico**, **Duda Comercial** o **Agradecimiento**.
 
+Además, para ahorrar trabajo al equipo de atención al cliente, la IA indica la **urgencia** de cada consulta, la **resume en una línea** y propone un **borrador de respuesta** que una persona revisa antes de enviar.
+
 ![Captura de la aplicación](docs/captura.png)
 
 ---
@@ -32,7 +34,7 @@ Para pararlo todo: `Ctrl + C` y después `docker compose down`. ¿Quieres volver
 
 ### ¿IA real o modo simulado?
 
-* **Sin API key (por defecto):** el sistema funciona en **modo simulado**, clasificando por palabras clave. Así se puede probar el proyecto sin registrarse en ningún sitio ni gastar nada.
+* **Sin API key (por defecto):** el sistema funciona en **modo simulado**: clasifica y estima la urgencia por palabras clave y propone una respuesta a partir de plantillas (el resumen solo lo genera la IA real). Así se puede probar el proyecto sin registrarse en ningún sitio ni gastar nada.
 * **Con IA real:** añade una API key en el `.env` y vuelve a levantarlo con `docker compose up`.
   * **Groq (gratis y rápido):** crea una key en https://console.groq.com/keys y pégala en `AI_API_KEY`.
   * **OpenAI u otro proveedor compatible:** cambia también `AI_BASE_URL` y `AI_MODEL` (en el `.env.example` tienes un ejemplo).
@@ -55,10 +57,10 @@ sequenceDiagram
     W->>W: Valida los datos (422 si no son válidos)
     W->>DB: INSERT estado = 'pendiente'
     W->>AI: POST /clasificar {texto}
-    AI->>LLM: prompt + texto (JSON, temperatura 0, timeout 10 s)
-    LLM-->>AI: {"categoria": "..."}
-    AI->>AI: Comprueba que la categoría es una de las 3
-    AI-->>W: {categoria, clasificado_por}
+    AI->>LLM: prompt + texto (JSON, temperatura 0, timeout 20 s)
+    LLM-->>AI: {categoria, urgencia, resumen, respuesta_sugerida}
+    AI->>AI: Valida la categoría (estricto) y corrige la urgencia si no es válida
+    AI-->>W: {categoria, urgencia, resumen, respuesta_sugerida, clasificado_por}
     W->>DB: UPDATE estado = 'clasificada' (o 'error' si algo falla)
     W-->>U: 201 + consulta clasificada
     U->>U: La interfaz se actualiza sin recargar
@@ -69,7 +71,7 @@ Son **4 contenedores Docker**:
 | Servicio | Tecnología | Qué hace |
 | :--- | :--- | :--- |
 | `web` | PHP 8.3 + Apache | Sirve el frontend y la API REST. Es el **único** que accede a la base de datos. |
-| `ai` | Python 3.12 + Flask + Gunicorn | Recibe el texto y devuelve la categoría. No accede a la base de datos. |
+| `ai` | Python 3.12 + Flask + Gunicorn | Recibe el texto y devuelve su análisis (categoría, urgencia, resumen y respuesta sugerida). No accede a la base de datos. |
 | `db` | MySQL 8 | Almacena la tabla `consultas` y los 4 registros de prueba iniciales (`db/init.sql`). |
 | `phpmyadmin` | phpMyAdmin | Para revisar los registros mientras pruebas. |
 
@@ -77,8 +79,8 @@ Son **4 contenedores Docker**:
 
 | Método | Ruta | Qué hace |
 | :--- | :--- | :--- |
-| `GET` | `/api/consultas.php` | Devuelve el listado (de más reciente a más antiguo) y los totales. Filtros opcionales: `?categoria=Duda Comercial`, `?estado=error` |
-| `POST` | `/api/consultas.php` | Crea y clasifica una consulta. Body: `{"nombre_tienda", "email", "texto"}` → `201` |
+| `GET` | `/api/consultas.php` | Devuelve el listado (de más reciente a más antiguo) y los totales. Filtros opcionales: `?categoria=Duda Comercial`, `?estado=error`, `?urgencia=alta` |
+| `POST` | `/api/consultas.php` | Crea y analiza una consulta. Body: `{"nombre_tienda", "email", "texto"}` → `201` |
 | `POST` | `/api/reintentar.php` | Vuelve a clasificar una consulta que quedó en estado `error`. Body: `{"id"}` |
 | `GET` | `/api/estado.php` | Indica si la IA está activa y qué modelo usa. |
 
@@ -102,7 +104,7 @@ curl -X POST http://localhost:8080/api/consultas.php \
 ├── ai-service/                     # Microservicio en Python
 │   ├── app.py                      # API Flask: POST /clasificar, GET /health
 │   ├── classifier.py               # Lógica principal: prompt, llamada al LLM y modo simulado
-│   ├── tests/test_classifier.py    # 16 tests con pytest
+│   ├── tests/test_classifier.py    # 21 tests con pytest
 │   └── Dockerfile
 └── php/
     ├── Dockerfile
@@ -126,6 +128,8 @@ curl -X POST http://localhost:8080/api/consultas.php \
 * **No confiar a ciegas en la IA:** temperatura 0, salida JSON forzada (`response_format`) y validación de la categoría en tres sitios: en Python, en PHP y en la base de datos con un `ENUM`.
 * **Protección contra prompt injection:** el texto del usuario va en un mensaje `user` separado del prompt de sistema. El prompt indica que se ignore cualquier instrucción incluida en el mensaje y, si aun así el modelo devolviera algo inventado, el código lo rechaza.
 * **Contexto de negocio en el prompt:** se explica al modelo qué es Eciglogística, qué incluye cada categoría (envíos o productos defectuosos ➜ Soporte; tarifas, stock o altas de tiendas ➜ Comercial) y cómo tratar los casos mixtos (por ejemplo, *"gracias por el pedido, pero llegó un bote roto"* ➜ Soporte).
+* **La IA ayuda, la persona decide:** la urgencia y el resumen ayudan a priorizar, y la respuesta sugerida es solo un borrador que se revisa y se copia con un clic. El prompt prohíbe inventar datos que la IA no conoce (precios, plazos, stock o números de seguimiento): en su lugar, el borrador indica que el equipo lo revisará.
+* **Validación estricta solo donde importa:** la categoría es crítica y, si no es válida, la consulta queda en `error`. Los campos de ayuda no lo son: si la urgencia llega mal se guarda como `media`, y un resumen vacío se deja sin rellenar, en lugar de perder toda la clasificación.
 * **Proveedor de IA intercambiable:** funciona con cualquier API compatible con OpenAI cambiando dos variables en el `.env`.
 * **Sin frameworks pesados:** al ser un proyecto acotado no usé Laravel, pero organicé el PHP en capas (repositorio, servicio, cliente HTTP) para que migrarlo a un framework fuera sencillo si el proyecto creciera.
 
@@ -136,7 +140,7 @@ curl -X POST http://localhost:8080/api/consultas.php \
 * **Validación en el servidor:** longitudes y formato del email se validan en el backend. Si algo no es válido, se devuelve un `422` con el error de cada campo.
 * **Errores controlados:** ante un error inesperado, el cliente recibe un `500` genérico y los detalles técnicos quedan solo en el log del servidor.
 * **Secretos protegidos:** las claves van en el `.env` (incluido en el `.gitignore`) y el servicio de Python solo es accesible desde la red interna de Docker.
-* **Timeouts:** PHP corta si Python tarda más de 15 s, y Python corta si el LLM tarda más de 10 s.
+* **Timeouts:** PHP corta si Python tarda más de 30 s, y Python corta si el LLM tarda más de 20 s (redactar el borrador de respuesta lleva algo más de tiempo que solo clasificar).
 
 ---
 
@@ -148,7 +152,7 @@ Para ejecutar los tests de Python con pytest:
 docker compose exec ai python -m pytest -v
 ```
 
-Cubren el modo simulado, el rechazo de respuestas no válidas de la IA, el JSON malformado, los timeouts del proveedor y la validación de la API (todo con la IA simulada mediante mocks, sin gastar tokens).
+Cubren el modo simulado (categoría, urgencia y respuesta), el rechazo de categorías no válidas, la corrección de campos de ayuda mal formados, el JSON malformado, los timeouts del proveedor y la validación de la API (todo con la IA simulada mediante mocks, sin gastar tokens).
 
 ---
 
@@ -177,7 +181,8 @@ Me quedo con una regla que lo resume todo: **los datos del usuario nunca se trat
 ## 🔮 Mejoras si tuviera más tiempo
 
 * Una **cola de tareas asíncrona** (Redis + un worker) para clasificar en segundo plano si el volumen de consultas fuera muy alto, avisando a la interfaz en tiempo real con Server-Sent Events.
-* Que la IA devuelva también un nivel de **urgencia/prioridad**, un resumen de una línea y un borrador de respuesta para ayudar al equipo.
+* **Enviar la respuesta** directamente desde el panel (por email) tras revisarla, guardando qué persona la aprobó.
+* Detectar en el mensaje datos útiles como el **número de pedido** o el **producto** mencionado, para enlazarlo con el ERP.
 * **Autenticación** para proteger el panel y **paginación** en el listado.
 * Tests de integración para la parte PHP (PHPUnit) y un pipeline de CI con GitHub Actions.
 * Conectar la entrada de consultas a un buzón de correo real (IMAP) o a un formulario de contacto externo.
