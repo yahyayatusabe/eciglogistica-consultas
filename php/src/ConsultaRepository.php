@@ -10,14 +10,21 @@ final class ConsultaRepository
 {
     public const CATEGORIAS = ['Soporte Técnico', 'Duda Comercial', 'Agradecimiento'];
     public const ESTADOS = ['pendiente', 'clasificada', 'error'];
+    public const URGENCIAS = ['alta', 'media', 'baja'];
 
-    private const COLUMNAS = 'id, nombre_tienda, email, texto, categoria, estado,
-                              clasificado_por, error_msg, created_at, processed_at';
+    private const COLUMNAS = 'id, nombre_tienda, email, texto, categoria, urgencia, resumen,
+                              respuesta_sugerida, estado, clasificado_por, error_msg,
+                              created_at, processed_at';
 
     public function __construct(private PDO $db) {}
 
     /** Listado con filtros opcionales, más recientes primero. */
-    public function listar(?string $categoria = null, ?string $estado = null, int $limite = 100): array
+    public function listar(
+        ?string $categoria = null,
+        ?string $estado = null,
+        ?string $urgencia = null,
+        int $limite = 100
+    ): array
     {
         $where = [];
         $params = [];
@@ -29,6 +36,10 @@ final class ConsultaRepository
         if ($estado !== null) {
             $where[] = 'estado = :estado';
             $params['estado'] = $estado;
+        }
+        if ($urgencia !== null) {
+            $where[] = 'urgencia = :urgencia';
+            $params['urgencia'] = $urgencia;
         }
 
         $sql = 'SELECT ' . self::COLUMNAS . ' FROM consultas'
@@ -52,10 +63,12 @@ final class ConsultaRepository
             'total' => 0,
             'por_categoria' => array_fill_keys(self::CATEGORIAS, 0),
             'por_estado' => array_fill_keys(self::ESTADOS, 0),
+            'por_urgencia' => array_fill_keys(self::URGENCIAS, 0),
         ];
 
         $filas = $this->db->query(
-            'SELECT categoria, estado, COUNT(*) AS n FROM consultas GROUP BY categoria, estado'
+            'SELECT categoria, estado, urgencia, COUNT(*) AS n FROM consultas
+              GROUP BY categoria, estado, urgencia'
         )->fetchAll();
 
         foreach ($filas as $fila) {
@@ -64,6 +77,9 @@ final class ConsultaRepository
             $resumen['por_estado'][$fila['estado']] += $n;
             if ($fila['categoria'] !== null) {
                 $resumen['por_categoria'][$fila['categoria']] += $n;
+            }
+            if ($fila['urgencia'] !== null) {
+                $resumen['por_urgencia'][$fila['urgencia']] += $n;
             }
         }
         return $resumen;
@@ -87,15 +103,24 @@ final class ConsultaRepository
         return (int) $this->db->lastInsertId();
     }
 
-    public function marcarClasificada(int $id, string $categoria, string $clasificadoPor): void
+    /** Guarda el análisis de la IA: categoría, urgencia, resumen y respuesta sugerida. */
+    public function marcarClasificada(int $id, array $analisis): void
     {
         $stmt = $this->db->prepare(
             'UPDATE consultas
-                SET categoria = :categoria, estado = \'clasificada\', clasificado_por = :por,
-                    error_msg = NULL, processed_at = NOW()
+                SET categoria = :categoria, urgencia = :urgencia, resumen = :resumen,
+                    respuesta_sugerida = :respuesta, estado = \'clasificada\',
+                    clasificado_por = :por, error_msg = NULL, processed_at = NOW()
               WHERE id = :id'
         );
-        $stmt->execute(['categoria' => $categoria, 'por' => $clasificadoPor, 'id' => $id]);
+        $stmt->execute([
+            'categoria' => $analisis['categoria'],
+            'urgencia'  => $analisis['urgencia'],
+            'resumen'   => $analisis['resumen'],
+            'respuesta' => $analisis['respuesta_sugerida'],
+            'por'       => $analisis['clasificado_por'],
+            'id'        => $id,
+        ]);
     }
 
     public function marcarError(int $id, string $mensaje): void

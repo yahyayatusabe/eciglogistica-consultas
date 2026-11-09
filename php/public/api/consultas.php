@@ -1,7 +1,7 @@
 <?php
 /**
  * API de consultas
- *   GET  /api/consultas.php[?categoria=...&estado=...]  -> listado + resumen
+ *   GET  /api/consultas.php[?categoria=...&estado=...&urgencia=...]  -> listado + resumen
  *   POST /api/consultas.php  {nombre_tienda, email, texto} -> crea y clasifica al instante
  */
 declare(strict_types=1);
@@ -14,6 +14,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
         $categoria = $_GET['categoria'] ?? null;
         $estado = $_GET['estado'] ?? null;
+        $urgencia = $_GET['urgencia'] ?? null;
 
         // Lista blanca: solo se aceptan valores conocidos en los filtros.
         if ($categoria !== null && !in_array($categoria, ConsultaRepository::CATEGORIAS, true)) {
@@ -22,9 +23,12 @@ switch ($_SERVER['REQUEST_METHOD']) {
         if ($estado !== null && !in_array($estado, ConsultaRepository::ESTADOS, true)) {
             responderJson(['error' => 'Estado no válido'], 400);
         }
+        if ($urgencia !== null && !in_array($urgencia, ConsultaRepository::URGENCIAS, true)) {
+            responderJson(['error' => 'Urgencia no válida'], 400);
+        }
 
         responderJson([
-            'consultas' => $repo->listar($categoria, $estado),
+            'consultas' => $repo->listar($categoria, $estado, $urgencia),
             'resumen' => $repo->resumen(),
         ]);
 

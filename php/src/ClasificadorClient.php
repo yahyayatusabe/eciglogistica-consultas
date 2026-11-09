@@ -12,16 +12,22 @@ final class ClasificadorClient
 {
     public function __construct(
         private string $urlBase,
-        private int $timeoutSegundos = 15
+        private int $timeoutSegundos = 30   // la IA también redacta un borrador de respuesta
     ) {}
 
-    /** @return array{categoria: string, clasificado_por: string} */
-    public function clasificar(string $texto): array
+    /**
+     * @return array{categoria: string, urgencia: string, resumen: ?string,
+     *               respuesta_sugerida: ?string, clasificado_por: string}
+     */
+    public function clasificar(string $texto, ?string $nombreTienda = null): array
     {
         $ch = curl_init(rtrim($this->urlBase, '/') . '/clasificar');
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => json_encode(['texto' => $texto], JSON_UNESCAPED_UNICODE),
+            CURLOPT_POSTFIELDS     => json_encode(
+                ['texto' => $texto, 'nombre_tienda' => $nombreTienda],
+                JSON_UNESCAPED_UNICODE
+            ),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 3,                       // no esperar si el servicio está caído
@@ -50,9 +56,23 @@ final class ClasificadorClient
             throw new ClasificacionException('El servicio de IA devolvió una respuesta no válida');
         }
 
+        // Los campos de ayuda no son críticos: si llegan mal, se guardan con un valor seguro.
+        $urgencia = $datos['urgencia'] ?? null;
+
         return [
             'categoria' => $datos['categoria'],
+            'urgencia' => in_array($urgencia, ConsultaRepository::URGENCIAS, true) ? $urgencia : 'media',
+            'resumen' => self::textoOpcional($datos['resumen'] ?? null, 255),
+            'respuesta_sugerida' => self::textoOpcional($datos['respuesta_sugerida'] ?? null, 2000),
             'clasificado_por' => (string) ($datos['clasificado_por'] ?? 'desconocido'),
         ];
+    }
+
+    private static function textoOpcional(mixed $valor, int $maximo): ?string
+    {
+        if (!is_string($valor) || trim($valor) === '') {
+            return null;
+        }
+        return mb_substr(trim($valor), 0, $maximo);
     }
 }

@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 /**
- * Flujo de negocio: validar -> guardar -> clasificar con IA -> actualizar.
+ * Flujo de negocio: validar -> guardar -> analizar con IA -> actualizar.
+ * La IA devuelve la categoría y, como ayuda para el equipo, urgencia, resumen y respuesta sugerida.
  * La consulta se guarda ANTES de llamar a la IA: si la IA falla, no se pierde
  * (queda en estado 'error' y se puede reintentar).
  */
@@ -57,8 +58,8 @@ final class ConsultaService
         }
 
         try {
-            $resultado = $this->clasificador->clasificar($consulta['texto']);
-            $this->repo->marcarClasificada($id, $resultado['categoria'], $resultado['clasificado_por']);
+            $analisis = $this->clasificador->clasificar($consulta['texto'], $consulta['nombre_tienda']);
+            $this->repo->marcarClasificada($id, $analisis);
         } catch (ClasificacionException $e) {
             // Solo errores de la IA; un fallo de BD sí debe llegar al manejador global.
             error_log("[IA] Consulta $id: " . $e->getMessage());
